@@ -1,0 +1,168 @@
+
+
+-- # 1. ¿Que cantidad de sesiones tenemos por tipo de dispositivos en la web?
+
+SELECT 
+
+tipo_dispositivo,
+
+COUNT(id_sesion_web) as cantidad_sesiones
+
+FROM tienda_unicornio_feliz.sesiones_web
+
+GROUP BY tipo_dispositivo
+
+-- 2 Are sessions the same as users? What is the number of unique users?  And what is the number of sessions?
+
+
+SELECT 
+
+count(id_sesion_web) as sesiones,
+
+count(DISTINCT id_usuario) as usuarios
+
+FROM tienda_unicornio_feliz.sesiones_web
+
+-- 3 What are the 5 months with the most traffic on the web?
+
+SELECT 
+
+EXTRACT( YEAR_MONTH FROM fecha_creacion) as anyo_mes,
+
+COUNT(id_sesion_web) as cantidad_sesiones
+
+FROM tienda_unicornio_feliz.sesiones_web
+
+GROUP BY anyo_mes
+
+ORDER BY cantidad_sesiones DESC
+
+LIMIT 5
+
+--  What is the main source of traffic?
+
+SELECT 
+
+utm_source,
+
+COUNT(id_sesion_web) as cantidad_sesiones
+
+FROM tienda_unicornio_feliz.sesiones_web
+
+GROUP BY utm_source
+
+ORDER BY cantidad_sesiones DESC
+
+LIMIT 1
+
+-- What are the traffic sources that have generated the most sales?
+
+
+SELECT 
+
+utm_source,
+
+FORMAT(SUM(articulos_comprado*precio),0) as ventas
+
+FROM tienda_unicornio_feliz.sesiones_web w
+
+LEFT JOIN tienda_unicornio_feliz.pedidos p on p.id_sesion_web = w.id_sesion_web
+
+GROUP BY utm_source
+
+ORDER BY SUM(articulos_comprado*precio) DESC
+
+LIMIT 1
+
+-- Could you show sales and number of sessions by traffic source, as well as the percentage of the total for each metric?
+
+
+SELECT 
+
+utm_source,
+
+FORMAT(SUM(articulos_comprado*precio),0) as ventas,
+
+(SUM(articulos_comprado*precio)) / (SELECT SUM(articulos_comprado*precio) FROM tienda_unicornio_feliz.pedidos p) as porcentaje_ventas,
+
+format(COUNT(w.id_sesion_web),0) as cantidad_sesiones,
+
+COUNT(w.id_sesion_web) / (SELECT COUNT(w.id_sesion_web) FROM tienda_unicornio_feliz.sesiones_web w) as porcentaje_sesiones
+
+FROM tienda_unicornio_feliz.sesiones_web w
+
+LEFT JOIN tienda_unicornio_feliz.pedidos p on p.id_sesion_web = w.id_sesion_web
+
+GROUP BY utm_source
+
+-- 7 What is the traffic-to-sales conversion rate?
+
+
+SELECT 
+
+utm_source,
+
+SUM(precio) as ventas,
+
+SUM(precio) / (SELECT SUM(precio) as ventas FROM tienda_unicornio_feliz.pedidos) as porcentaje_ventas,
+
+COUNT(w.id_sesion_web) as cantidad_sesiones,
+
+COUNT(w.id_sesion_web) / (SELECT COUNT(id_sesion_web) FROM tienda_unicornio_feliz.sesiones_web) as porcentaje_sesiones
+
+FROM tienda_unicornio_feliz.pedidos p
+
+RIGHT  JOIN tienda_unicornio_feliz.sesiones_web w on p.id_sesion_web = w.id_sesion_web
+
+group by utm_source;
+
+-- What percentage of users repeat?
+
+SELECT
+
+(SELECT 
+
+COUNT( DISTINCT id_usuario) as usuarios_repetidos
+
+FROM tienda_unicornio_feliz.sesiones_web 
+
+WHERE es_sesion_repetida = 1),
+
+COUNT(DISTINCT id_usuario),
+
+(SELECT COUNT( DISTINCT id_usuario) as usuarios_repetidos FROM tienda_unicornio_feliz.sesiones_web  WHERE es_sesion_repetida = 1)/COUNT(id_sesion_web) as porcentaje_repetidos
+
+FROM tienda_unicornio_feliz.sesiones_web ;
+
+-- Could you calculate the number of different orders per day between entering the website and placing the order?
+
+	SELECT 
+
+	DATEDIFF(p.fecha_creacion, w.fecha_creacion) as dias_diferencia,
+
+	COUNT(p.id_pedido) as cantidad_pedidos
+
+	FROM tienda_unicornio_feliz.sesiones_web w
+
+	LEFT JOIN tienda_unicornio_feliz.pedidos p on w.id_sesion_web = p.id_sesion_web
+
+	WHERE p.fecha_creacion is not null
+
+	GROUP BY dias_diferencia
+
+-- What are the sales generated per campaign?
+
+
+	SELECT 
+
+	utm_campaign,
+
+	FORMAT(SUM(articulos_comprado*precio),0) as ventas
+
+	FROM tienda_unicornio_feliz.sesiones_web w
+
+	LEFT JOIN tienda_unicornio_feliz.pedidos p on p.id_sesion_web = w.id_sesion_web
+
+	GROUP BY utm_campaign
+
+	ORDER BY SUM(articulos_comprado*precio) DESC

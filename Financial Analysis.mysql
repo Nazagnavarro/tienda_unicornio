@@ -1,0 +1,196 @@
+
+-- 1. What are the sales per year?
+
+	SELECT 
+
+	YEAR(fecha_creacion) as anyo,
+
+	FORMAT(sum(precio),2) as ventas_anuales
+
+	FROM tienda_unicornio_feliz.pedidos
+
+	GROUP BY anyo
+
+	order by anyo DESC;
+
+-- 2 What are the average sales for each month and year?
+
+SELECT 
+
+	YEAR(fecha_creacion) as anyo,
+
+	MONTH(fecha_creacion) as mes,
+
+	SUM(precio) as ventas,
+
+    AVG(precio) as ventas_media_pedido
+
+FROM tienda_unicornio_feliz.pedidos
+
+GROUP BY anyo,mes;
+
+-- 3 Which product sells the most in monetary terms?
+
+
+SELECT 
+
+	pr.id_producto,
+
+	nombre_producto,
+
+	FORMAT(SUM(p.precio),2) AS ventas
+
+	FROM tienda_unicornio_feliz.pedidos p
+
+INNER JOIN tienda_unicornio_feliz.pedido_articulo pa on p.id_pedido = pa.id_pedido
+
+INNER JOIN tienda_unicornio_feliz.productos pr on pr.id_producto = pa.id_producto
+
+GROUP BY nombre_producto,id_producto
+
+ORDER BY SUM(p.precio) DESC
+
+LIMIT 1;
+
+-- 4  What is the gross profit margin for each product?
+
+
+SELECT 
+
+DISTINCT
+
+nombre_producto,
+
+(precio-costo) as margen
+
+FROM tienda_unicornio_feliz.pedido_articulo pa
+
+LEFT JOIN tienda_unicornio_feliz.productos p on p.id_producto = pa.id_producto;
+
+-- 5 Can we know the launch date of each product?
+
+SELECT 
+
+	p.id_producto,
+
+	p.nombre_producto,
+
+	MIN(pa.fecha_creacion) as fecha_lanzamiento
+
+FROM pedido_articulo pa
+
+	LEFT JOIN productos p on p.id_producto = pa.id_producto
+
+	GROUP BY p.id_producto,
+
+p.nombre_producto
+
+-- 6 Calculate sales per year, as well as the numerical margin. We also want to know what percentage each product represents of total sales.
+
+
+with ventas_por_producto AS (
+
+SELECT 
+
+	nombre_producto,
+
+	SUM(precio) as ventas
+
+FROM pedido_articulo pa
+
+INNER JOIN productos p on pa.id_producto = p.id_producto
+
+GROUP BY nombre_producto)
+
+SELECT 
+
+	YEAR(pa.fecha_creacion) as anyo,
+
+	p.nombre_producto,
+
+	SUM(precio) as ventas,
+
+	SUM(precio-costo) as margen_numerico,
+
+    vpp.ventas / (SELECT SUM(precio) as ventas FROM tienda_unicornio_feliz.pedidos) as porcentaje
+
+FROM pedido_articulo pa
+
+INNER JOIN productos p on pa.id_producto = p.id_producto
+
+LEFT JOIN ventas_por_producto vpp on vpp.nombre_producto = p.nombre_producto
+
+GROUP BY anyo,nombre_producto
+
+ORDER BY anyo
+
+-- 7 What are the TOP 3 months with the highest sales?
+
+
+SELECT 
+
+YEAR(fecha_creacion) as anyo,
+
+MONTH(fecha_creacion) as mes,
+
+FORMAT(SUM(articulos_comprado*Precio),2) as ventas
+
+FROM tienda_unicornio_feliz.pedidos
+
+GROUP BY anyo,mes
+
+ORDER BY ventas DESC
+
+LIMIT 3;
+
+-- 8 #  What is the gross profit margin per product and what percentage does it occupy of the total margin?
+
+
+SELECT 
+
+pr.nombre_producto,
+
+FORMAT(SUM(p.articulos_comprado*p.Precio)-SUM(p.costo),0) as margen_bruto ,
+
+(SUM(p.articulos_comprado*p.Precio)-SUM(p.costo))/(SELECT SUM(p.articulos_comprado*p.Precio)-SUM(p.costo) FROM tienda_unicornio_feliz.pedidos p) AS Porcentaje
+
+FROM tienda_unicornio_feliz.pedidos p
+
+LEFT JOIN  tienda_unicornio_feliz.pedido_articulo pa on pa.id_pedido = p.id_pedido
+
+LEFT JOIN tienda_unicornio_feliz.productos pr on pr.id_producto = pa.id_producto
+
+GROUP BY nombre_producto;
+
+-- 9 # What is the average gross profit margin per product line in the last quarter of the company's data?
+
+
+SELECT
+
+nombre_producto,
+
+SUM(precio-costo) as margen_bruto,
+
+CONCAT(format(SUM(precio-costo) / (SELECT SUM(precio-costo) as margen_bruto FROM tienda_unicornio_feliz.pedidos),2)*100,'%') as porcentaje
+
+FROM pedido_articulo pa
+
+LEFT JOIN productos p on p.id_producto = pa.id_producto
+
+WHERE pa.fecha_creacion >= (SELECT DATE(DATE_SUB(MAX(fecha_creacion), INTERVAL 3 MONTH)) FROM tienda_unicornio_feliz.pedidos)
+
+GROUP BY nombre_producto
+
+order by margen_bruto DESC
+
+-- 10 # What is the percentage of returned items?
+
+
+SELECT 
+
+COUNT(ar.id_articulo_reembolso)/ COUNT(p.id_pedido) as total_pedidos
+
+FROM tienda_unicornio_feliz.pedidos p 
+
+LEFT JOIN tienda_unicornio_feliz.pedido_articulo_reembolsos ar on ar.id_articulo_reembolso = p.id_pedido
+
